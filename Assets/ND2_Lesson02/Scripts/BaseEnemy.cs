@@ -2,30 +2,26 @@ using UnityEngine;
 
 public class BaseEnemy : MonoBehaviour
 {
-    // Start is called once before the first execution of Update after the MonoBehaviour is created
-    void Start()
+    public float appearTime; // 出現時間
+    public bool isAlive;     // 生存しているか
+
+    // === 初期化メソッド ===
+    public void Initialize(Vector2 position, float appearTime)
     {
-        //// 👇 GameManagerのInstanceは静的変数なので、GameManager.Instance で直接参照出来る。
-        //Debug.Log($"エネミーから { GameManager.Instance } へアクセス。");
-        //GameManager.Instance.EnterEnemy(this);
+        transform.position = position;
+        this.appearTime = appearTime;
+        isAlive = true;
+
+        gameObject.SetActive(false);
     }
 
-    // Update is called once per frame
-    void Update()
+    // === プレイヤーへ向かう移動メソッド ===
+    public void Movement(Vector2 playerPosition)
     {
+        Vector2 direction =
+            (playerPosition - (Vector2)transform.position).normalized;
 
-    }
-
-    // === 初期化メソッド === //
-    public void Initialize(Vector2 position)
-    {
-        transform.position = position;      // 初期位置
-    }
-
-    // === 移動メソッド ===
-    public void Movement()
-    {
-        // Translate(移動方向(m) * 時間単位(s))で移動
-        transform.Translate(Vector3.left * Time.deltaTime);
+        transform.position +=
+            (Vector3)(direction * Time.deltaTime);
     }
 }

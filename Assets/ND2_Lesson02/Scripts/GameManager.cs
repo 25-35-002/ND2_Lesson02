@@ -2,130 +2,161 @@ using UnityEngine;
 
 // === 使用するデザインパターン === //
 // - シングルトンパターン (Singleton Pattern) -
-// このプロジェクト内に、『ただ一つのみ存在するオブジェクト』を作る時に使用するパターン。
-// どのオブジェクトからでも即座にアクセスできる！！
 public class GameManager : MonoBehaviour, IBattleUnitListener, IBulletListener
 {
-    // 静的(static)な変数
-    // 👇[static]を付けた変数はどこからでも参照（アクセス）できる！！
     public static GameManager Instance { get; private set; }
 
-    // === 各種変数を宣言 === //
-    public BasePlayer playerPrefab;     // プレハブ用変数(BasePlayer)
-    public BaseEnemy enemyPrefab;       // プレハブ用変数(BaseEnemy)
-    public BaseBullet bulletPrefab;     // プレハブ用変数(BaseBullet)
+    // === プレハブ用変数 ===
+    public BasePlayer playerPrefab;
+    public BaseEnemy enemyPrefab;
+    public BaseBullet bulletPrefab;
 
-    public BasePlayer[] players;        // インスタンス用変数
-    public BaseEnemy[] enemies;         // インスタンス用変数
-    public BaseBullet[] bullets;        // インスタンス用変数
+    // === インスタンス用配列 ===
+    public BasePlayer[] players;
+    public BaseEnemy[] enemies;
+    public BaseBullet[] bullets;
 
-    // Start の上位互換 ※Start よりも速く実行される
+    // ゲーム開始からの経過時間
+    public float gameTimer;
+
     void Awake()
     {
         if (Instance != null && Instance != this)
         {
             Destroy(gameObject);
+            return;
         }
 
-        Instance = this;                    // 変数に自身のクラスを代入
-        DontDestroyOnLoad(gameObject);    // シーンが変わっても破棄されない設定
+        Instance = this;
+        DontDestroyOnLoad(gameObject);
     }
 
     void Start()
     {
-        // === 各配列の初期化 === //
-        players = new BasePlayer[1];        // プレイヤーを n体 で初期化
-        enemies = new BaseEnemy[100];       // 敵を100体で初期化
-        bullets = new BaseBullet[100];      // 弾丸を100体で初期化
+        gameTimer = 0f;
 
-        // === キャラクターをスポーンさせる ===//
-        // indexの初期値を0とし; indexが "1より小さい"ときだけ; indexを1ずつ増やしながら繰り返す
-        for (int index = 0; index < 1; index++)
+        // === 配列の初期化 ===
+        players = new BasePlayer[1];
+        enemies = new BaseEnemy[100];
+        bullets = new BaseBullet[100];
+
+        // === プレイヤーを生成 ===
+        for (int index = 0; index < players.Length; index++)
         {
-            players[index] = Instantiate(playerPrefab);      // プレハブインスタンスの生成(BasePlayer)
+            players[index] = Instantiate(playerPrefab);
         }
 
-        // indexの初期値を0とし; indexが "100より小さい"ときだけ; indexを1ずつ増やしながら繰り返す
-        for (int index = 0; index < 100; index++)
+        // === 敵を生成 ===
+        for (int index = 0; index < enemies.Length; index++)
         {
-            enemies[index] = Instantiate(enemyPrefab);       // プレハブインスタンスの生成(BaseEnemy)
+            enemies[index] = Instantiate(enemyPrefab);
         }
 
-        // indexの初期値を0とし; indexが "100より小さい"ときだけ; indexを1ずつ増やしながら繰り返す
-        for (int index = 0; index < 100; index++)
+        // === 弾丸を生成 ===
+        for (int index = 0; index < bullets.Length; index++)
         {
-            bullets[index] = Instantiate(bulletPrefab);      // プレハブインスタンスの生成(BaseBullet)
+            bullets[index] = Instantiate(bulletPrefab);
         }
 
-        // === キャラクターを初期化する === //
-        for (int index = 0; index < 1; index++)
-        {   // プレイヤー達の初期化
-            players[index].Initialize(this, new Vector2(-3, 0));
+        // === プレイヤーを初期化 ===
+        for (int index = 0; index < players.Length; index++)
+        {
+            players[index].Initialize(
+                this,
+                new Vector2(-3, 0)
+            );
         }
 
-        for (int index = 0; index < 100; index++)
-        {   // 敵はランダムな位置で初期化
+        // === 敵を初期化 ===
+        for (int index = 0; index < enemies.Length; index++)
+        {
             Vector2 randomPos = Vector2.zero;
             randomPos.x = 15;
             randomPos.y = Random.Range(-5f, 5f);
 
-            enemies[index].Initialize(randomPos);
+            // 1～60秒のランダムな出現時間
+            float randomAppearTime = Random.Range(1f, 60f);
+
+            enemies[index].Initialize(
+                randomPos,
+                randomAppearTime
+            );
         }
 
-        for (int index = 0; index < 100; index++)
+        // === 弾丸を初期化 ===
+        for (int index = 0; index < bullets.Length; index++)
         {
-            bullets[index].Initialize(players[0].transform.position, Vector3.right);
+            bullets[index].Initialize(
+                players[0].transform.position,
+                Vector3.right
+            );
         }
     }
 
     void Update()
     {
-        // プレイヤーを全員動かす
-        for (int index = 0; index < 1; index++)
-        {
-            players[index].Movement();
-            players[index].Shot();
-        }
+        gameTimer += Time.deltaTime;
 
-        // 敵を全員動かす
-        for (int index = 0; index < 100; index++)
-        {
-            enemies[index].Movement();
-        }
-
-        // 弾丸を全員動かす
-        for (int index = 0; index < 100; index++)
-        {
-            bullets[index].Movement();
-        }
-    }
-
-    // === オブジェクトを登録するメソッド === //
-    public void EnterPlayer(BasePlayer player)
-    {
-        // 初期化が出来てなければ、何もしない...
-        if (players == null || players.Length == 0)
-        {
-            Debug.Log("配列の初期化に失敗していますよ...");
-            return;     // 強制終了...
-        }
-
-        // forループを使って配列の中身を全てチェック
+        // === プレイヤーを動かす ===
         for (int index = 0; index < players.Length; index++)
         {
-            Debug.Log($"配列の {index} 番目の中身 >> {players[index]}");
-            if (players[index] == null)
+            if (players[index].gameObject.activeSelf)
             {
-                Debug.Log($"{index}番目に中身がない(Null)ので、{player} を代入します。");
-                players[index] = player;
-
-                return;     // 入れたら終了
+                players[index].Movement();
+                players[index].Shot();
             }
         }
 
-        Debug.Log($"空きがないので、{player}を設定出来ませんでした...");
+        // === 敵を出現させてプレイヤーへ動かす ===
+        for (int index = 0; index < enemies.Length; index++)
+        {
+            // 生存中・非アクティブ・出現時間を超えた場合
+            if (enemies[index].isAlive &&
+                !enemies[index].gameObject.activeSelf &&
+                gameTimer >= enemies[index].appearTime)
+            {
+                enemies[index].gameObject.SetActive(true);
+            }
+
+            // アクティブな敵をプレイヤーへ向かわせる
+            if (enemies[index].gameObject.activeSelf)
+            {
+                enemies[index].Movement(
+                    players[0].transform.position
+                );
+            }
+        }
+
+        // === 弾丸を動かす ===
+        for (int index = 0; index < bullets.Length; index++)
+        {
+            if (bullets[index].gameObject.activeSelf)
+            {
+                bullets[index].Movement();
+            }
+        }
     }
 
+    // === プレイヤーを登録するメソッド ===
+    public void EnterPlayer(BasePlayer player)
+    {
+        if (players == null || players.Length == 0)
+        {
+            Debug.Log("プレイヤー配列が初期化されていません。");
+            return;
+        }
+
+        for (int index = 0; index < players.Length; index++)
+        {
+            if (players[index] == null)
+            {
+                players[index] = player;
+                return;
+            }
+        }
+    }
+
+    // === 敵を登録するメソッド ===
     public void EnterEnemy(BaseEnemy enemy)
     {
         if (enemies == null || enemies.Length == 0)
@@ -133,60 +164,80 @@ public class GameManager : MonoBehaviour, IBattleUnitListener, IBulletListener
             return;
         }
 
-        for (int i = 0; i < enemies.Length; i++)
+        for (int index = 0; index < enemies.Length; index++)
         {
-            if (enemies[i] == null)
+            if (enemies[index] == null)
             {
-                enemies[i] = enemy;
+                enemies[index] = enemy;
                 return;
             }
         }
     }
-    public void OnCollision(Transform player = null, Transform enemy = null)
+
+    // === プレイヤーと敵の当たり判定 ===
+    public void OnCollision(
+        Transform player = null,
+        Transform enemy = null
+    )
     {
-        try
+        if (player == null || !player.gameObject.activeSelf)
         {
-            Debug.Log($"衝撃対象　>> {player.name} vs {enemy.name}");
-        }
-        catch (System.Exception error)
-        {
-            Debug.Log($"エラーを無視します... >>  \n {error}");
+            return;
         }
 
-        for(int e = 0; e < enemies.Length; e++)
+        for (int index = 0; index < enemies.Length; index++)
         {
-            if(enemies[e].gameObject.activeSelf)
+            if (enemies[index].gameObject.activeSelf)
             {
-                float distance = Vector2.Distance(player.transform.position, enemies[e].transform.position);
+                float distance = Vector2.Distance(
+                    player.position,
+                    enemies[index].transform.position
+                );
+
                 if (distance <= 1)
                 {
-                    Debug.Log($"範囲内！！{player} vs {enemies[e]}");
+                    Debug.Log(
+                        $"範囲内！！{player} vs {enemies[index]}"
+                    );
 
                     player.gameObject.SetActive(false);
+                    return;
                 }
-
             }
         }
     }
 
+    // === 弾丸と敵の当たり判定 ===
     public void OnBulletDamage(Transform bullet)
     {
-        for (int e = 0; e < enemies.Length; e++)
+        if (bullet == null || !bullet.gameObject.activeSelf)
         {
+            return;
+        }
 
-            if (enemies[e].gameObject.activeSelf)
+        for (int index = 0; index < enemies.Length; index++)
+        {
+            if (enemies[index].gameObject.activeSelf)
             {
-                float distance = Vector2.Distance(bullet.position, enemies[e].transform.position);
+                float distance = Vector2.Distance(
+                    bullet.position,
+                    enemies[index].transform.position
+                );
 
                 if (distance <= 1)
                 {
-                    Debug.Log($"範囲内！！{bullet} vs {enemies[e]}");
+                    Debug.Log(
+                        $"範囲内！！{bullet} vs {enemies[index]}"
+                    );
 
                     bullet.gameObject.SetActive(false);
-                    enemies[e].gameObject.SetActive(false);
+
+                    enemies[index].isAlive = false;
+                    enemies[index].gameObject.SetActive(false);
+
+                    return;
                 }
             }
         }
     }
-
 }
